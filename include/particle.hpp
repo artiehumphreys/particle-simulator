@@ -9,7 +9,7 @@ struct Particle {
 
     Particle() = default;
 
-    Particle(float x, float y) : position {x, y}, lastPosition{x, y} {}
+    Particle(float x, float y) : position {x, y}, lastPosition {x, y} {}
 
     void setPosition (vec2 newPosition) {
         lastPosition = position;
