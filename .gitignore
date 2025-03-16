@@ -27,7 +27,8 @@
 *.lib
 
 # MacOS Specific Files
-#.DS_Store
+*.DS_Store
+
 # Executables
 *.exe
 *.out
