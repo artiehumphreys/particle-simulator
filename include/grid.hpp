@@ -7,13 +7,15 @@ struct Grid {
     struct Cell {
         vec2 position;
         vec<T> points;
-        int32_t pointCount = 0;
 
         Cell(float x, float y) : position {x, y} {}
 
+        int getPointCount() {
+            return points.size();
+        }
+
         void addPoint(const vec2& p) {
             points.push_back(p);
-            ++pointCount;
         }
 
         bool removePoint(int id) {
@@ -21,7 +23,6 @@ struct Grid {
                 if (it->id != id) continue;
                 std::iter_swap(it, points.end() - 1);
                 points.pop_back();
-                --pointCount;
                 return true;
             }
             return false;
@@ -50,26 +51,25 @@ struct Grid {
         }
     }
 
-    template <typename vec2Type>
-    const Cell& get(const vec2Type& p) const {
+    const Cell& get(const vec2& p) const {
         return get(static_cast<int32_t>(p.x), static_cast<int32_t>(p.y));
     }
 
     const Cell& get(int32_t x, int32_t y) const {
+        if (!areCoordsValid(x, y)) return nullptr;
         return cells[y][x];
     }
 
-    template <typename vec2Type>
-    void set (const vec2Type& p, const T& cell) {
+    void set (const vec2& p, const T& cell) {
         set(static_cast<int32_t>(p.x), static_cast<int32_t>(p.y), cell);
     }
 
     void set(int32_t x, int32_t y, const T& cell) {
+        if (!areCoordsValid(x, y)) return;
         cells[y][x] = &cell;
     }
 
-    template <typename vec2Type>
-    bool areCoordsValid (const vec2Type& p) {
+    bool areCoordsValid (const vec2& p) {
         return areCoordsValid(static_cast<int32_t>(p.x), static_cast<int32_t>(p.y));
     }
 
