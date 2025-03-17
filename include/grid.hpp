@@ -1,5 +1,6 @@
 #include "common.hpp"
 #include "particle.hpp"
+#include <cstdint>
 
 template <typename T>
 struct Grid {
@@ -52,6 +53,16 @@ struct Grid {
 
     void set(int32_t x, int32_t y, const T& cell) {
         cells[y][x] = &cell;
+    }
+
+    template <typename vec2Type>
+    bool areCoordsValid (const vec2Type& p) {
+        return areCoordsValid(static_cast<int32_t>(p.x), static_cast<int32_t>(p.y));
+    }
+
+    bool areCoordsValid(int32_t x, int32_t y) {
+        return static_cast<int32_t>(x) > 0 && static_cast<int32_t>(x) < (width - 1) &&
+               static_cast<int32_t>(y) > 0 && static_cast<int32_t>(y) < (height - 1);
     }
 
 };
