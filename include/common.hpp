@@ -5,6 +5,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <algorithm>
 #include <chrono>
 #include <thread>
 #include <cstdint>

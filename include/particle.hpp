@@ -4,12 +4,15 @@ struct Particle {
     vec2 position = {0.0f, 0.0f};
     vec2 lastPosition = {0.0f, 0.0f};
     vec2 acceleration  = {0.0f, 0.0f};
+    int id;
+
+    inline static int nextID = 0;
 
     c color;
 
     Particle() = default;
 
-    Particle(float x, float y) : position {x, y}, lastPosition {x, y} {}
+    Particle(float x, float y) : position {x, y}, lastPosition {x, y}, id(nextID++) {}
 
     void setPosition (vec2 newPosition) {
         lastPosition = position;
@@ -23,4 +26,5 @@ struct Particle {
         setPosition(newPosition);
         acceleration = {0.0f, 0.0f};
     }
+
 };

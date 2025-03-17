@@ -1,6 +1,5 @@
 #include "common.hpp"
 #include "particle.hpp"
-#include <cstdint>
 
 template <typename T>
 struct Grid {
@@ -8,18 +7,32 @@ struct Grid {
     struct Cell {
         vec2 position;
         vec<T> points;
+        int32_t pointCount = 0;
 
         Cell(float x, float y) : position {x, y} {}
 
-        void addPoint(const T& p) {
+        void addPoint(const vec2& p) {
             points.push_back(p);
+            ++pointCount;
+        }
+
+        bool removePoint(int id) {
+            for (auto it = points.begin(); it != points.end(); ++it){
+                if (it->id != id) continue;
+                std::iter_swap(it, points.end() - 1);
+                points.pop_back();
+                --pointCount;
+                return true;
+            }
+            return false;
         }
 
     };
 
     vec<vec<Cell>> cells;
-    // width * height squares
     int32_t width, height;
+    static constexpr int8_t cellSize = 2;
+    int32_t rows = height / cellSize, cols = width / cellSize;
     Grid(int32_t width_, int32_t height_) : width(width_), height(height_) {
         createGrid();
     }
@@ -27,10 +40,10 @@ struct Grid {
     void createGrid() {
         cells.clear();
         cells.reserve(height);
-        for (size_t i = 0; i < height; ++i) {
+        for (size_t i = 0; i < rows; ++i) {
             vec<Cell> row;
-            row.reserve(width);
-            for (size_t j = 0; j < width; ++j) {
+            row.reserve(rows);
+            for (size_t j = 0; j < cols; ++j){
                 row.emplace_back(i, j);
             }
             cells.push_back(std::move(row));
