@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common.hpp"
-#include "particle.hpp"
 
 template <typename T>
 struct Grid {
