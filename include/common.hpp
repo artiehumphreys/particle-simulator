@@ -1,5 +1,4 @@
-#ifndef COMMON_HPP
-#define COMMON_HPP
+#pragma once
 
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
@@ -16,6 +15,3 @@ using c = sf::Color;
 
 template <typename T>
 using vec = std::vector<T>;
-
-
-#endif

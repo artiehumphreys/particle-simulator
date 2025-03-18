@@ -1,3 +1,5 @@
+#pragma once
+
 #include "common.hpp"
 #include "particle.hpp"
 
@@ -33,17 +35,19 @@ struct Grid {
     vec<vec<Cell>> cells;
     int32_t width, height;
     static constexpr int8_t cellSize = 2;
-    int32_t rows = height / cellSize, cols = width / cellSize;
+    int32_t rows, cols;
     Grid(int32_t width_, int32_t height_) : width(width_), height(height_) {
+        cols = (width + cellSize - 1) / cellSize;
+        rows = (height + cellSize - 1) / cellSize;
         createGrid();
     }
 
     void createGrid() {
         cells.clear();
-        cells.reserve(height);
+        cells.reserve(rows);
         for (size_t i = 0; i < rows; ++i) {
             vec<Cell> row;
-            row.reserve(rows);
+            row.reserve(cols);
             for (size_t j = 0; j < cols; ++j){
                 row.emplace_back(i, j);
             }
@@ -74,8 +78,8 @@ struct Grid {
     }
 
     bool areCoordsValid(int32_t x, int32_t y) {
-        return static_cast<int32_t>(x) > 0 && static_cast<int32_t>(x) < (width - 1) &&
-               static_cast<int32_t>(y) > 0 && static_cast<int32_t>(y) < (height - 1);
+        return static_cast<int32_t>(x) >= 0 && static_cast<int32_t>(x) < (rows) &&
+               static_cast<int32_t>(y) >= 0 && static_cast<int32_t>(y) < (cols);
     }
 
 };
