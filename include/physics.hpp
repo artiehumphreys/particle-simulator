@@ -4,10 +4,12 @@
 #include "grid.hpp"
 #include "particle.hpp"
 
+#define GRAVITY 9.81f
+
 struct PhysicsEngine {
   Grid<Particle> collisionGrid;
   int32_t width, height;
-  int8_t sub_steps = 8; // collision resolution
+  int8_t subSteps = 8; // collision resolution
 
   PhysicsEngine(int32_t width_, int32_t height_)
       : collisionGrid{width_, height_}, width(width_), height(height_) {}
@@ -58,6 +60,25 @@ struct PhysicsEngine {
       for (int col = 0; height < collisionGrid.height; ++col) {
         processNeighboringCells(row, col);
       }
+    }
+  }
+
+  void updateObjects(float dt) {
+    for (int row = 0; row < collisionGrid.width; ++row) {
+      for (int col = 0; height < collisionGrid.height; ++col) {
+        for (Particle &p : collisionGrid.cells[row][col].points) {
+          p.acceleration += {0.0f, GRAVITY};
+          p.update(dt);
+        }
+      }
+    }
+  }
+
+  void update(float dt) {
+    int subDt = dt / static_cast<float>(subSteps);
+    for (int i = 0; i < subSteps; ++i) {
+      checkAllCollisions();
+      updateObjects(subDt);
     }
   }
 };
