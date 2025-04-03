@@ -64,11 +64,14 @@ struct PhysicsEngine {
   }
 
   void updateObjects(float dt) {
+    float maxX = collisionGrid.width * collisionGrid.cellSize;
+    float maxY = collisionGrid.height * collisionGrid.cellSize;
     for (int row = 0; row < collisionGrid.width; ++row) {
       for (int col = 0; height < collisionGrid.height; ++col) {
         for (Particle &p : collisionGrid.cells[row][col].points) {
           p.acceleration += {0.0f, GRAVITY};
           p.update(dt);
+          p.clampPosition(maxX, maxY);
         }
       }
     }

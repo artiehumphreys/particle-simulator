@@ -23,6 +23,11 @@ struct Particle {
     position = newPosition;
   }
 
+  void clampPosition(float maxX, float maxY) {
+    position.x = fmax(fmin(position.x, maxX), 0.0f);
+    position.y = fmax(fmin(position.y, maxY), 0.0f);
+  }
+
   void update(float timeDiff) {
     // formula: 2 * current position - previous position + acceleration * time
     // difference ** 2 implicitly account for velocity
