@@ -9,6 +9,7 @@ struct Particle {
   int8_t radius = 1;
   int id;
 
+  // unique id for each particle
   inline static int nextID = 0;
 
   c color;

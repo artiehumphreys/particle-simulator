@@ -1,25 +1,29 @@
 #pragma once
 
 #include "common.hpp"
+#include <cmath>
+#include <cstdint>
 
 template <typename T> struct Grid {
 
   struct Cell {
     vec2 position;
-    vec<T> points;
+    // each cell keeps track of particles contained with it.
+    vec<int> particleIndices;
 
     Cell(float x, float y) : position{x, y} {}
 
-    int getPointCount() { return points.size(); }
+    int getParticleCount() { return particleIndices.size(); }
 
-    void addPoint(const vec2 &p) { points.push_back(p); }
+    void addParticle(const int idx) { particleIndices.push_back(idx); }
 
-    bool removePoint(int id) {
-      for (auto it = points.begin(); it != points.end(); ++it) {
-        if (it->id != id)
+    bool removeParticle(int idx) {
+      for (auto it = particleIndices.begin(); it != particleIndices.end();
+           ++it) {
+        if (!*it == idx)
           continue;
-        std::iter_swap(it, points.end() - 1);
-        points.pop_back();
+        std::iter_swap(it, particleIndices.end() - 1);
+        particleIndices.pop_back();
         return true;
       }
       return false;
@@ -39,42 +43,43 @@ template <typename T> struct Grid {
   void createGrid() {
     cells.clear();
     cells.reserve(rows);
-    for (size_t i = 0; i < rows; ++i) {
+    for (int32_t i = 0; i < rows; ++i) {
       vec<Cell> row;
       row.reserve(cols);
-      for (size_t j = 0; j < cols; ++j) {
-        row.emplace_back(i, j);
+      for (int32_t j = 0; j < cols; ++j) {
+        row.emplace_back(j, i);
       }
       cells.push_back(std::move(row));
     }
   }
 
-  const Cell &get(const vec2 &p) const {
-    return get(static_cast<int32_t>(p.x), static_cast<int32_t>(p.y));
+  static vec2 getGridIndex(int32_t x, int32_t y) {
+    float newX = static_cast<float>(std::floor(x / cellSize));
+    float newY = static_cast<float>(std::floor(y / cellSize));
+    return vec2{newX, newY};
   }
 
-  const Cell &get(int32_t x, int32_t y) const {
+  void insertParticle(const int idx, int32_t x, int32_t y) {
+    vec2 newCoords = getGridIndex(x, y);
+    cells[static_cast<int>(newCoords.y)][static_cast<int>(newCoords.x)]
+        .addParticle(idx);
+  }
+
+  bool removeParticle(const int idx, int32_t x, int32_t y) {
+    vec2 newCoords = getGridIndex(x, y);
+    return cells[static_cast<int>(newCoords.y)][static_cast<int>(newCoords.x)]
+        .removeParticle(idx);
+  }
+
+  const Cell *get(int32_t x, int32_t y) const {
     if (!areCoordsValid(x, y))
       return nullptr;
-    return cells[y][x];
+    return &cells[y][x];
   }
 
-  void set(const vec2 &p, const T &cell) {
-    set(static_cast<int32_t>(p.x), static_cast<int32_t>(p.y), cell);
-  }
-
-  void set(int32_t x, int32_t y, const T &cell) {
-    if (!areCoordsValid(x, y))
-      return;
-    cells[y][x] = &cell;
-  }
-
-  bool areCoordsValid(const vec2 &p) {
-    return areCoordsValid(static_cast<int32_t>(p.x), static_cast<int32_t>(p.y));
-  }
-
-  bool areCoordsValid(int32_t x, int32_t y) {
-    return static_cast<int32_t>(x) >= 0 && static_cast<int32_t>(x) < (rows) &&
-           static_cast<int32_t>(y) >= 0 && static_cast<int32_t>(y) < (cols);
+  bool areCoordsValid(int32_t row, int32_t col) {
+    return static_cast<int32_t>(row) >= 0 &&
+           static_cast<int32_t>(row) < (rows) &&
+           static_cast<int32_t>(col) >= 0 && static_cast<int32_t>(col) < (cols);
   }
 };

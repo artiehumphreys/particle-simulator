@@ -8,6 +8,7 @@
 
 struct PhysicsEngine {
   Grid<Particle> collisionGrid;
+  vec<Particle> particles;
   int32_t width, height;
   int8_t subSteps = 8; // collision resolution
 
@@ -44,8 +45,17 @@ struct PhysicsEngine {
         int newCol = col + dCol;
         if (!collisionGrid.areCoordsValid(newRow, newCol))
           continue;
-        for (Particle &p1 : collisionGrid.cells[row][col].points) {
-          for (Particle &p2 : collisionGrid.cells[newRow][newCol].points) {
+        const auto &cellCurrent = collisionGrid.cells[row][col];
+        const auto &cellNeighbor = collisionGrid.cells[newRow][newCol];
+
+        for (size_t i = 0; i < cellCurrent.particleIndices.size(); ++i) {
+          int idx1 = cellCurrent.particleIndices[i];
+          Particle &p1 = particles[idx1];
+          for (size_t j = 0; j < cellNeighbor.particleIndices.size(); ++j) {
+            int idx2 = cellNeighbor.particleIndices[j];
+            Particle &p2 = particles[idx2];
+            // when processing the same combination of cells, only check one
+            // ordering.
             if (row == newRow && col == newCol && p1.id >= p2.id)
               continue;
             solveCollision(p1, p2);
@@ -66,12 +76,32 @@ struct PhysicsEngine {
   void updateObjects(float dt) {
     float maxX = collisionGrid.width * collisionGrid.cellSize;
     float maxY = collisionGrid.height * collisionGrid.cellSize;
-    for (int row = 0; row < collisionGrid.width; ++row) {
-      for (int col = 0; height < collisionGrid.height; ++col) {
-        for (Particle &p : collisionGrid.cells[row][col].points) {
-          p.acceleration += {0.0f, GRAVITY};
-          p.update(dt);
-          p.clampPosition(maxX, maxY);
+    for (int i = 0; i < particles.size(); ++i) {
+      Particle &p = particles[i];
+      p.acceleration += vec2{0.0f, GRAVITY};
+      p.update(dt);
+      p.clampPosition(maxX, maxY);
+    }
+    updateCellOwnership();
+  }
+
+  void updateCellOwnership() {
+    for (int i = 0; i < particles.size(); ++i) {
+      Particle &p = particles[i];
+      vec2 oldIndex =
+          collisionGrid.getGridIndex(static_cast<int32_t>(p.lastPosition.x),
+                                     static_cast<int32_t>(p.lastPosition.y));
+
+      vec2 newIndex =
+          collisionGrid.getGridIndex(static_cast<int32_t>(p.position.x),
+                                     static_cast<int32_t>(p.position.y));
+
+      if (newIndex != oldIndex) {
+        if (collisionGrid.areCoordsValid(oldIndex.x, oldIndex.y)) {
+          collisionGrid.removeParticle(i, oldIndex.x, oldIndex.y);
+        }
+        if (collisionGrid.areCoordsValid(newIndex.x, newIndex.y)) {
+          collisionGrid.insertParticle(i, newIndex.x, newIndex.y);
         }
       }
     }
