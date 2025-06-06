@@ -9,6 +9,8 @@
 struct PhysicsEngine {
   Grid<Particle> collisionGrid;
   vec<Particle> particles;
+  // list of dead (free) particles that have been removed and can be recycled
+  vec<int> freeList;
   int32_t width, height;
   int8_t subSteps = 8; // collision resolution
 
@@ -113,5 +115,54 @@ struct PhysicsEngine {
       checkAllCollisions();
       updateObjects(subDt);
     }
+  }
+
+  int addParticle(const vec2 &pos) {
+    int idx;
+    if (!freeList.empty()) {
+      // there are particles that can be recycled
+      idx = freeList.back();
+      freeList.pop_back();
+      particles[idx] = Particle{pos.x, pos.y};
+    } else {
+      idx = particles.size();
+      particles.emplace_back(pos.x, pos.y);
+    }
+
+    particles[idx].id = idx;
+
+    vec2 cell = collisionGrid.getGridIndex(pos.x, pos.y);
+    int col = cell.x;
+    int row = cell.y;
+
+    if (collisionGrid.areCoordsValid(col, row)) {
+      collisionGrid.cells[row][col].addParticle(idx);
+    }
+
+    return idx;
+  }
+
+  bool removeParticle(int id) {
+    if (0 < id || id >= particles.size())
+      return false;
+
+    Particle &remove = particles[id];
+    vec2 cell =
+        collisionGrid.getGridIndex(remove.position.x, remove.position.y);
+
+    int col = cell.x;
+    int row = cell.y;
+
+    int backIndex = particles.size() - 1;
+    if (id == backIndex) {
+      if (collisionGrid.cells[row][col].removeParticle(id)) {
+        particles.pop_back();
+        return true;
+      }
+      return false;
+    }
+
+    freeList.push_back(id);
+    return true;
   }
 };

@@ -61,12 +61,16 @@ template <typename T> struct Grid {
 
   void insertParticle(const int idx, int32_t x, int32_t y) {
     vec2 newCoords = getGridIndex(x, y);
+    if (!areCoordsValid(newCoords.x, newCoords.y))
+      return;
     cells[static_cast<int>(newCoords.y)][static_cast<int>(newCoords.x)]
         .addParticle(idx);
   }
 
   bool removeParticle(const int idx, int32_t x, int32_t y) {
     vec2 newCoords = getGridIndex(x, y);
+    if (!areCoordsValid(newCoords.x, newCoords.y))
+      return false;
     return cells[static_cast<int>(newCoords.y)][static_cast<int>(newCoords.x)]
         .removeParticle(idx);
   }
@@ -77,7 +81,7 @@ template <typename T> struct Grid {
     return &cells[y][x];
   }
 
-  bool areCoordsValid(int32_t row, int32_t col) {
+  bool areCoordsValid(int32_t col, int32_t row) {
     return static_cast<int32_t>(row) >= 0 &&
            static_cast<int32_t>(row) < (rows) &&
            static_cast<int32_t>(col) >= 0 && static_cast<int32_t>(col) < (cols);
