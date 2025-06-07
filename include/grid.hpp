@@ -20,7 +20,7 @@ template <typename T> struct Grid {
     bool removeParticle(int idx) {
       for (auto it = particleIndices.begin(); it != particleIndices.end();
            ++it) {
-        if (!*it == idx)
+        if (*it != idx)
           continue;
         std::iter_swap(it, particleIndices.end() - 1);
         particleIndices.pop_back();
