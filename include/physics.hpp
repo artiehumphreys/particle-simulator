@@ -110,7 +110,7 @@ struct PhysicsEngine {
   }
 
   void update(float dt) {
-    int subDt = dt / static_cast<float>(subSteps);
+    float subDt = dt / static_cast<float>(subSteps);
     for (int i = 0; i < subSteps; ++i) {
       checkAllCollisions();
       updateObjects(subDt);

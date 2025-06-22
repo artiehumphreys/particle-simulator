@@ -14,8 +14,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SFML)
 
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
 set(SRC
-  main.cpp
+  src/main.cp
 )
 
 add_executable(${PROJECT_NAME} ${SRC})
@@ -30,4 +32,3 @@ target_link_libraries(${PROJECT_NAME}
     sfml-window
     sfml-graphics
 )
-
