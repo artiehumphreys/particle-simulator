@@ -7,8 +7,8 @@
 namespace render {
 class Renderer {
 public:
-  Renderer(PhysicsEngine &_engine, int _width, int _height)
-      : engine(_engine), width(_width), height(_height) {};
+  Renderer(PhysicsEngine &engine_, int width_, int height_)
+      : engine(engine_), width(width_), height(height_) {};
 
   void drawParticles();
 
