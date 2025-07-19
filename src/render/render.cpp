@@ -1,10 +1,10 @@
-#include "render/Renderer.hpp"
+#include "render/render.hpp"
 
 namespace render {
 Renderer::Renderer(PhysicsEngine &engine_, int32_t width_, int32_t height_)
-    : engine(_engine), width(_width), height(height_),
-      window(sf::videoMode(width, height), "Particle Simulator"), shape(1.0f) {
-  window.setFrameLimit(60);
+    : engine(engine_), width(width_), height(height_),
+      window(sf::VideoMode(width, height), "Particle Simulator"), shape(1.0f) {
+  window.setFramerateLimit(60);
   shape.setFillColor(sf::Color::Cyan);
 }
 
@@ -19,6 +19,6 @@ void Renderer::drawParticles() {
 
 bool Renderer::isOpen() const { return window.isOpen(); }
 
-void Renderer::pollEvent(sf::Event &event) { return window.pollEvent(event); }
+bool Renderer::pollEvent(sf::Event &event) { return window.pollEvent(event); }
 
 } // namespace render

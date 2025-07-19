@@ -17,7 +17,8 @@ FetchContent_MakeAvailable(SFML)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 set(SRC
-  src/main.cp
+  main.cpp
+  src/render/render.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SRC})

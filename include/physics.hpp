@@ -76,8 +76,8 @@ struct PhysicsEngine {
   }
 
   void updateObjects(float dt) {
-    float maxX = collisionGrid.width * collisionGrid.cellSize;
-    float maxY = collisionGrid.height * collisionGrid.cellSize;
+    float maxX = static_cast<float>(collisionGrid.width);
+    float maxY = static_cast<float>(collisionGrid.height);
     for (int i = 0; i < particles.size(); ++i) {
       Particle &p = particles[i];
       p.acceleration += vec2{0.0f, GRAVITY};

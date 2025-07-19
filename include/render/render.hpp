@@ -7,14 +7,13 @@
 namespace render {
 class Renderer {
 public:
-  Renderer(PhysicsEngine &engine_, int width_, int height_)
-      : engine(engine_), width(width_), height(height_) {};
+  Renderer(PhysicsEngine &engine_, int width_, int height_);
 
   void drawParticles();
 
-  bool isOpen();
+  bool isOpen() const;
 
-  void pollEvent(sf::Event &event);
+  bool pollEvent(sf::Event &event);
 
 private:
   PhysicsEngine &engine;

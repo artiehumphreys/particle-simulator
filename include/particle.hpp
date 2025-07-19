@@ -25,8 +25,21 @@ struct Particle {
   }
 
   void clampPosition(float maxX, float maxY) {
-    position.x = fmax(fmin(position.x, maxX), 0.0f);
-    position.y = fmax(fmin(position.y, maxY), 0.0f);
+    if (position.x < radius) {
+      position.x = static_cast<float>(radius);
+      lastPosition.x = position.x;
+    } else if (position.x > maxX - radius) {
+      position.x = maxX - radius;
+      lastPosition.x = position.x;
+    }
+
+    if (position.y < radius) {
+      position.y = static_cast<float>(radius);
+      lastPosition.y = position.y;
+    } else if (position.y > maxY - radius) {
+      position.y = maxY - radius;
+      lastPosition.y = position.y;
+    }
   }
 
   void update(float timeDiff) {
