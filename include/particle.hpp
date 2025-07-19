@@ -6,13 +6,11 @@ struct Particle {
   vec2 position = {0.0f, 0.0f};
   vec2 lastPosition = {0.0f, 0.0f};
   vec2 acceleration = {0.0f, 0.0f};
-  int8_t radius = 1;
+  int8_t radius = 4;
   int id;
 
   // unique id for each particle
   inline static int nextID = 0;
-
-  c color;
 
   Particle() = default;
 
@@ -25,21 +23,9 @@ struct Particle {
   }
 
   void clampPosition(float maxX, float maxY) {
-    if (position.x < radius) {
-      position.x = static_cast<float>(radius);
-      lastPosition.x = position.x;
-    } else if (position.x > maxX - radius) {
-      position.x = maxX - radius;
-      lastPosition.x = position.x;
-    }
-
-    if (position.y < radius) {
-      position.y = static_cast<float>(radius);
-      lastPosition.y = position.y;
-    } else if (position.y > maxY - radius) {
-      position.y = maxY - radius;
-      lastPosition.y = position.y;
-    }
+    float diam = static_cast<float>(radius * 2);
+    position.x = fmax(fmin(position.x, maxX - diam), diam);
+    position.y = fmax(fmin(position.y, maxY - diam), diam);
   }
 
   void update(float timeDiff) {
