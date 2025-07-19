@@ -1,17 +1,26 @@
 #pragma once
 
+#include "common.hpp"
 #include "particle.hpp"
 #include "physics.hpp"
-#include <SMFL/Graphics.hpp>
-#include <cstdint>
 
 namespace render {
 class Renderer {
+public:
+  Renderer(PhysicsEngine &_engine, int _width, int _height)
+      : engine(_engine), width(_width), height(_height) {};
+
+  void drawParticles();
+
+  bool isOpen();
+
+  void pollEvent(sf::Event &event);
+
+private:
+  PhysicsEngine &engine;
   int32_t width;
   int32_t height;
-
-  PhysicsEngine &engine;
-
-  Renderer(PhysicsEngine &_engine) : engine(_engine) {};
+  sf::RenderWindow window;
+  sf::CircleShape shape;
 };
 } // namespace render
