@@ -23,9 +23,27 @@ struct Particle {
   }
 
   void clampPosition(float maxX, float maxY) {
-    float diam = static_cast<float>(radius * 2);
-    position.x = fmax(fmin(position.x, maxX - diam), diam);
-    position.y = fmax(fmin(position.y, maxY - diam), diam);
+    float r = static_cast<float>(radius);
+
+    constexpr float dampening = 0.8f;
+    vec2 v = position - lastPosition;
+
+    if (position.x < r) {
+      position.x = r;
+      lastPosition.x = position.x + v.x * dampening;
+    } else if (position.x > maxX - r) {
+      position.x = maxX - r;
+      lastPosition.x = position.x + v.x * dampening;
+    }
+
+    // Top / Bottom walls
+    if (position.y < r) {
+      position.y = r;
+      lastPosition.y = position.y + v.y * dampening;
+    } else if (position.y > maxY - r) {
+      position.y = maxY - r;
+      lastPosition.y = position.y + v.y * dampening;
+    }
   }
 
   void update(float timeDiff) {
