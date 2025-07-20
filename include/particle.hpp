@@ -36,7 +36,6 @@ struct Particle {
       lastPosition.x = position.x + v.x * dampening;
     }
 
-    // Top / Bottom walls
     if (position.y < r) {
       position.y = r;
       lastPosition.y = position.y + v.y * dampening;
