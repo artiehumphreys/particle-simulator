@@ -31,7 +31,7 @@ template <typename T> struct Grid {
 
   vec<vec<Cell>> cells;
   uint32_t width, height;
-  static constexpr uint8_t cellSize = 8;
+  static constexpr uint8_t cellSize = 4;
   uint32_t rows, cols;
   Grid(uint32_t width_, uint32_t height_) : width(width_), height(height_) {
     cols = (width + cellSize - 1) / cellSize;
