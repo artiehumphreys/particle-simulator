@@ -3,7 +3,6 @@
 #include "common.hpp"
 #include "grid.hpp"
 #include "particle.hpp"
-#include <iostream>
 
 #define GRAVITY 20.0f
 
@@ -11,11 +10,11 @@ struct PhysicsEngine {
   Grid<Particle> collisionGrid;
   vec<Particle> particles;
   // list of dead (free) particles that have been removed and can be recycled
-  vec<int> freeList;
-  int32_t width, height;
-  int8_t subSteps = 8; // collision resolution
+  vec<uint32_t> freeList;
+  uint32_t width, height;
+  uint8_t subSteps = 8; // collision resolution
 
-  PhysicsEngine(int32_t width_, int32_t height_)
+  PhysicsEngine(uint32_t width_, uint32_t height_)
       : collisionGrid{width_, height_}, width(width_), height(height_) {}
 
   void solveCollision(Particle &p1, Particle &p2) {
@@ -42,33 +41,34 @@ struct PhysicsEngine {
     }
   }
 
-  void processNeighboringCells(int row, int col) {
-    int R = collisionGrid.rows;
-    int C = collisionGrid.cols;
+  void processNeighboringCells(uint32_t row, uint32_t col) {
+    uint32_t R = collisionGrid.rows;
+    uint32_t C = collisionGrid.cols;
     auto &current = collisionGrid.cells[row][col].particleIndices;
-    size_t nCurrent = current.size();
+    uint32_t nCurrent = current.size();
     if (current.empty())
       return;
 
-    static constexpr int DIRS[5][2] = {{0, 0}, {0, 1}, {1, 0}, {1, -1}, {1, 1}};
+    static constexpr int8_t DIRS[5][2] = {
+        {0, 0}, {0, 1}, {1, 0}, {1, -1}, {1, 1}};
 
-    for (size_t i = 0; i < sizeof(DIRS) / sizeof(DIRS[0]); ++i) {
-      int newRow = row + DIRS[i][0];
-      int newCol = col + DIRS[i][1];
+    for (uint32_t i = 0; i < sizeof(DIRS) / sizeof(DIRS[0]); ++i) {
+      uint32_t newRow = row + DIRS[i][0];
+      uint32_t newCol = col + DIRS[i][1];
       if (!collisionGrid.areCoordsValid(newCol, newRow))
         continue;
       const auto &cellNeighbor =
           collisionGrid.cells[newRow][newCol].particleIndices;
-      size_t nNeighbor = cellNeighbor.size();
+      uint32_t nNeighbor = cellNeighbor.size();
 
       if (nNeighbor == 0)
         continue;
 
-      auto processSameCellCollisions = [this](const vec<int> &particles,
-                                              size_t nParticles) {
-        for (size_t a = 0; a < nParticles; ++a) {
+      auto processSameCellCollisions = [this](const vec<uint32_t> &particles,
+                                              uint32_t nParticles) {
+        for (uint32_t a = 0; a < nParticles; ++a) {
           int idx1 = particles[a];
-          for (size_t b = a + 1; b < nParticles; ++b) {
+          for (uint32_t b = a + 1; b < nParticles; ++b) {
             int idx2 = particles[b];
             solveCollision(this->particles[idx1], this->particles[idx2]);
           }
@@ -76,11 +76,11 @@ struct PhysicsEngine {
       };
 
       auto processCrossCellCollisions =
-          [this](const vec<int> &current, size_t nCurrent,
-                 const vec<int> &neighbor, int nNeighbor) {
-            for (size_t i = 0; i < nCurrent; ++i) {
+          [this](const vec<uint32_t> &current, uint32_t nCurrent,
+                 const vec<uint32_t> &neighbor, uint32_t nNeighbor) {
+            for (uint32_t i = 0; i < nCurrent; ++i) {
               int idx1 = current[i];
-              for (size_t j = 0; j < nNeighbor; ++j) {
+              for (uint32_t j = 0; j < nNeighbor; ++j) {
                 int idx2 = neighbor[j];
                 solveCollision(particles[idx1], particles[idx2]);
               }
@@ -118,12 +118,12 @@ struct PhysicsEngine {
     for (int i = 0; i < particles.size(); ++i) {
       Particle &p = particles[i];
       vec2 oldIndex =
-          collisionGrid.getGridIndex(static_cast<int32_t>(p.lastPosition.x),
-                                     static_cast<int32_t>(p.lastPosition.y));
+          collisionGrid.getGridIndex(static_cast<uint32_t>(p.lastPosition.x),
+                                     static_cast<uint32_t>(p.lastPosition.y));
 
       vec2 newIndex =
-          collisionGrid.getGridIndex(static_cast<int32_t>(p.position.x),
-                                     static_cast<int32_t>(p.position.y));
+          collisionGrid.getGridIndex(static_cast<uint32_t>(p.position.x),
+                                     static_cast<uint32_t>(p.position.y));
 
       if (newIndex != oldIndex) {
         if (collisionGrid.areCoordsValid(oldIndex.x, oldIndex.y)) {
@@ -151,7 +151,7 @@ struct PhysicsEngine {
   }
 
   int addParticle(const vec2 &pos) {
-    int idx;
+    uint32_t idx;
     if (!freeList.empty()) {
       // there are particles that can be recycled
       idx = freeList.back();
@@ -165,8 +165,8 @@ struct PhysicsEngine {
     particles[idx].id = idx;
 
     vec2 cell = collisionGrid.getGridIndex(pos.x, pos.y);
-    int col = cell.x;
-    int row = cell.y;
+    uint32_t col = cell.x;
+    uint32_t row = cell.y;
 
     if (collisionGrid.areCoordsValid(col, row)) {
       collisionGrid.cells[row][col].addParticle(idx);
@@ -175,7 +175,7 @@ struct PhysicsEngine {
     return idx;
   }
 
-  bool removeParticle(int id) {
+  bool removeParticle(uint32_t id) {
     if (0 < id || id >= particles.size())
       return false;
 
@@ -183,10 +183,10 @@ struct PhysicsEngine {
     vec2 cell =
         collisionGrid.getGridIndex(remove.position.x, remove.position.y);
 
-    int col = cell.x;
-    int row = cell.y;
+    uint32_t col = cell.x;
+    uint32_t row = cell.y;
 
-    int backIndex = particles.size() - 1;
+    uint32_t backIndex = particles.size() - 1;
     if (id == backIndex) {
       if (collisionGrid.cells[row][col].removeParticle(id)) {
         particles.pop_back();

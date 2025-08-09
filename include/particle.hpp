@@ -6,11 +6,11 @@ struct Particle {
   vec2 position = {0.0f, 0.0f};
   vec2 lastPosition = {0.0f, 0.0f};
   vec2 acceleration = {0.0f, 0.0f};
-  int8_t radius = 4;
-  int id;
+  uint8_t radius = 4;
+  uint32_t id;
 
   // unique id for each particle
-  inline static int nextID = 0;
+  inline static uint32_t nextID = 0;
 
   Particle() = default;
 
