@@ -46,31 +46,51 @@ struct PhysicsEngine {
     int R = collisionGrid.rows;
     int C = collisionGrid.cols;
     auto &current = collisionGrid.cells[row][col].particleIndices;
+    size_t nCurrent = current.size();
     if (current.empty())
       return;
 
-    for (int dRow = -1; dRow <= 1; ++dRow) {
-      for (int dCol = -1; dCol <= 1; ++dCol) {
-        int newRow = row + dRow;
-        int newCol = col + dCol;
-        if (!collisionGrid.areCoordsValid(newCol, newRow))
-          continue;
-        const auto &cellCurrent = collisionGrid.cells[row][col];
-        const auto &cellNeighbor = collisionGrid.cells[newRow][newCol];
+    static constexpr int DIRS[5][2] = {{0, 0}, {0, 1}, {1, 0}, {1, -1}, {1, 1}};
 
-        for (size_t i = 0; i < cellCurrent.particleIndices.size(); ++i) {
-          int idx1 = cellCurrent.particleIndices[i];
-          Particle &p1 = particles[idx1];
-          for (size_t j = 0; j < cellNeighbor.particleIndices.size(); ++j) {
-            int idx2 = cellNeighbor.particleIndices[j];
-            Particle &p2 = particles[idx2];
-            // when processing the same combination of cells, only check one
-            // ordering.
-            if (row == newRow && col == newCol && p1.id >= p2.id)
-              continue;
-            solveCollision(p1, p2);
+    for (size_t i = 0; i < sizeof(DIRS) / sizeof(DIRS[0]); ++i) {
+      int newRow = row + DIRS[i][0];
+      int newCol = col + DIRS[i][1];
+      if (!collisionGrid.areCoordsValid(newCol, newRow))
+        continue;
+      const auto &cellNeighbor =
+          collisionGrid.cells[newRow][newCol].particleIndices;
+      size_t nNeighbor = cellNeighbor.size();
+
+      if (nNeighbor == 0)
+        continue;
+
+      auto processSameCellCollisions = [this](const vec<int> &particles,
+                                              size_t nParticles) {
+        for (size_t a = 0; a < nParticles; ++a) {
+          int idx1 = particles[a];
+          for (size_t b = a + 1; b < nParticles; ++b) {
+            int idx2 = particles[b];
+            solveCollision(this->particles[idx1], this->particles[idx2]);
           }
         }
+      };
+
+      auto processCrossCellCollisions =
+          [this](const vec<int> &current, size_t nCurrent,
+                 const vec<int> &neighbor, int nNeighbor) {
+            for (size_t i = 0; i < nCurrent; ++i) {
+              int idx1 = current[i];
+              for (size_t j = 0; j < nNeighbor; ++j) {
+                int idx2 = neighbor[j];
+                solveCollision(particles[idx1], particles[idx2]);
+              }
+            }
+          };
+
+      if (newRow == row && newCol == col) {
+        processSameCellCollisions(current, nCurrent);
+      } else {
+        processCrossCellCollisions(current, nCurrent, cellNeighbor, nNeighbor);
       }
     }
   }
