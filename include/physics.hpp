@@ -3,8 +3,9 @@
 #include "common.hpp"
 #include "grid.hpp"
 #include "particle.hpp"
+#include <iostream>
 
-#define GRAVITY 9.81f
+#define GRAVITY 20.0f
 
 struct PhysicsEngine {
   Grid<Particle> collisionGrid;
@@ -21,7 +22,9 @@ struct PhysicsEngine {
     // idea: take the difference between their summed radii and actual
     // difference between them. shift them away along axis of intersection
     // difference / 2 units
-    const float epsilon = 1e-2;
+    constexpr float response_coef = 1.0f;
+    // https://github.com/johnBuffer/VerletSFML-Multithread
+    constexpr float epsilon = 1e-4;
     const float expectedDistance = static_cast<float>(p1.radius + p2.radius);
     vec2 axis = p1.position - p2.position;
     const float squaredDistance = axis.x * axis.x + axis.y * axis.y;
@@ -30,22 +33,27 @@ struct PhysicsEngine {
         squaredDistance > epsilon) {
       const float actualDistance = std::sqrt(squaredDistance);
       const float overlap = expectedDistance - actualDistance;
+      const float delta = response_coef * 0.5f * overlap;
 
-      float delta = overlap / 2.0f;
+      const vec2 col_vec = (axis / actualDistance) * delta;
 
-      vec2 normal = axis / actualDistance;
-
-      p1.position += normal * delta;
-      p2.position += normal * delta;
+      p1.position += col_vec;
+      p2.position -= col_vec;
     }
   }
 
   void processNeighboringCells(int row, int col) {
+    int R = collisionGrid.rows;
+    int C = collisionGrid.cols;
+    auto &current = collisionGrid.cells[row][col].particleIndices;
+    if (current.empty())
+      return;
+
     for (int dRow = -1; dRow <= 1; ++dRow) {
-      for (int dCol = -1; dRow <= 1; ++dCol) {
+      for (int dCol = -1; dCol <= 1; ++dCol) {
         int newRow = row + dRow;
         int newCol = col + dCol;
-        if (!collisionGrid.areCoordsValid(newRow, newCol))
+        if (!collisionGrid.areCoordsValid(newCol, newRow))
           continue;
         const auto &cellCurrent = collisionGrid.cells[row][col];
         const auto &cellNeighbor = collisionGrid.cells[newRow][newCol];
@@ -68,18 +76,17 @@ struct PhysicsEngine {
   }
 
   void checkAllCollisions() {
-    for (int row = 0; row < collisionGrid.width; ++row) {
-      for (int col = 0; height < collisionGrid.height; ++col) {
+    for (int row = 0; row < collisionGrid.rows; ++row) {
+      for (int col = 0; col < collisionGrid.cols; ++col) {
         processNeighboringCells(row, col);
       }
     }
   }
 
   void updateObjects(float dt) {
-    float maxX = collisionGrid.width * collisionGrid.cellSize;
-    float maxY = collisionGrid.height * collisionGrid.cellSize;
-    for (int i = 0; i < particles.size(); ++i) {
-      Particle &p = particles[i];
+    float maxX = static_cast<float>(width);
+    float maxY = static_cast<float>(height);
+    for (Particle &p : particles) {
       p.acceleration += vec2{0.0f, GRAVITY};
       p.update(dt);
       p.clampPosition(maxX, maxY);
@@ -110,10 +117,16 @@ struct PhysicsEngine {
   }
 
   void update(float dt) {
-    int subDt = dt / static_cast<float>(subSteps);
+    float subDt = dt / static_cast<float>(subSteps);
+    float maxX = static_cast<float>(width);
+    float maxY = static_cast<float>(height);
     for (int i = 0; i < subSteps; ++i) {
-      checkAllCollisions();
       updateObjects(subDt);
+      checkAllCollisions();
+      for (auto &p : particles) {
+        p.clampPosition(maxX, maxY);
+      }
+      updateCellOwnership();
     }
   }
 
