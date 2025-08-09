@@ -8,7 +8,7 @@ int main() {
   PhysicsEngine engine(width, height);
   render::Renderer renderer(engine, width, height);
 
-  for (int i = 0; i < 1500; ++i)
+  for (int i = 0; i < 2000; ++i)
     engine.addParticle(
         {float(std::rand() % width), float(std::rand() % height)});
 

@@ -12,7 +12,7 @@ struct PhysicsEngine {
   // list of dead (free) particles that have been removed and can be recycled
   vec<uint32_t> freeList;
   uint32_t width, height;
-  uint8_t subSteps = 8; // collision resolution
+  uint8_t subSteps = 4; // collision resolution
 
   PhysicsEngine(uint32_t width_, uint32_t height_)
       : collisionGrid{width_, height_}, width(width_), height(height_) {}
