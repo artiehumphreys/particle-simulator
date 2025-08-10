@@ -25,6 +25,15 @@ public:
     tasks.pop();
   }
 
+  static void wait() { std::this_thread::yield(); }
+
+  void waitUntilComplete() const {
+    while (remaining_tasks > 0)
+      wait();
+  }
+
+  void taskDone() { --remaining_tasks; }
+
 private:
   std::queue<std::function<void()>> tasks;
   std::mutex mtx;
