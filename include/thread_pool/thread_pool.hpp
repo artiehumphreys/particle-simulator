@@ -27,6 +27,7 @@ private:
   void startWorkers(uint32_t n);
   vec<std::thread> workers;
   SafeQueue tasks;
+  std::atomic<bool> running = false;
   uint32_t numThreads;
 };
 
