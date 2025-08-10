@@ -17,8 +17,8 @@ public:
 
 private:
   PhysicsEngine &engine;
-  int32_t width;
-  int32_t height;
+  uint32_t width;
+  uint32_t height;
   sf::RenderWindow window;
   sf::CircleShape shape;
 };
