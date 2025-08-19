@@ -7,14 +7,14 @@ namespace tp {
 class ThreadPool {
   // https://medium.com/@bhushanrane1992/getting-started-with-c-thread-pool-b6d1102da99a
 public:
-  ThreadPool(uint32_t numThreads) {}
+  explicit ThreadPool(int32_t numThreads);
 
   ThreadPool(const ThreadPool &) = delete;
   ThreadPool &operator=(const ThreadPool &) = delete;
   ~ThreadPool();
 
   template <typename TCallback> void addTask(TCallback &&callback) {
-    tasks.addTask(std::function<void()>(std::forward<TCallback>(cb)));
+    tasks_.addTask(std::function<void()>(std::forward<TCallback>(callback)));
   }
 
   void waitIdle();
@@ -25,9 +25,9 @@ public:
 
 private:
   void startWorkers(uint32_t n);
-  vec<std::thread> workers;
-  SafeQueue tasks;
-  std::atomic<bool> running = false;
+  vec<std::thread> workers_;
+  SafeQueue tasks_;
+  std::atomic<bool> running_ = false;
   uint32_t numThreads;
 };
 

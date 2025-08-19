@@ -5,8 +5,15 @@
 #include <SFML/Window.hpp>
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <iostream>
+#include <mutex>
+#include <queue>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
