@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "grid.hpp"
 #include "particle.hpp"
+#include "thread_pool/thread_pool.hpp"
 
 #define GRAVITY 20.0f
 
@@ -14,8 +15,14 @@ struct PhysicsEngine {
   uint32_t width, height;
   uint8_t subSteps = 4; // collision resolution
 
-  PhysicsEngine(uint32_t width_, uint32_t height_)
-      : collisionGrid{width_, height_}, width(width_), height(height_) {}
+  tp::ThreadPool &pool;
+
+  static constexpr int8_t DIRS[5][2] = {
+      {0, 0}, {0, 1}, {1, 0}, {1, -1}, {1, 1}};
+
+  PhysicsEngine(uint32_t width_, uint32_t height_, tp::ThreadPool &pool_)
+      : collisionGrid{width_, height_}, width(width_), height(height_),
+        pool(pool_) {}
 
   void solveCollision(Particle &p1, Particle &p2) {
     // idea: take the difference between their summed radii and actual
@@ -42,17 +49,12 @@ struct PhysicsEngine {
   }
 
   void processNeighboringCells(uint32_t row, uint32_t col) {
-    uint32_t R = collisionGrid.rows;
-    uint32_t C = collisionGrid.cols;
     auto &current = collisionGrid.cells[row][col].particleIndices;
     uint32_t nCurrent = current.size();
     if (current.empty())
       return;
 
-    static constexpr int8_t DIRS[5][2] = {
-        {0, 0}, {0, 1}, {1, 0}, {1, -1}, {1, 1}};
-
-    for (uint32_t i = 0; i < sizeof(DIRS) / sizeof(DIRS[0]); ++i) {
+    for (uint8_t i = 0; i < sizeof(DIRS) / sizeof(DIRS[0]); ++i) {
       uint32_t newRow = row + DIRS[i][0];
       uint32_t newCol = col + DIRS[i][1];
       if (!collisionGrid.areCoordsValid(newCol, newRow))
@@ -95,10 +97,48 @@ struct PhysicsEngine {
     }
   }
 
-  void checkAllCollisions() {
-    for (int row = 0; row < collisionGrid.rows; ++row) {
-      for (int col = 0; col < collisionGrid.cols; ++col) {
-        processNeighboringCells(row, col);
+  void processNeighboringCells_band(uint32_t beginRow, uint32_t endRow,
+                                    uint32_t row, uint32_t col) {
+    auto &current = collisionGrid.cells[row][col].particleIndices;
+    const uint32_t nCurrent = static_cast<uint32_t>(current.size());
+    if (nCurrent == 0)
+      return;
+
+    for (uint8_t i = 0; i < sizeof(DIRS) / sizeof(DIRS[0]); ++i) {
+      uint32_t newRow = row + DIRS[i][0];
+      uint32_t newCol = col + DIRS[i][1];
+      if (newRow < beginRow || newRow > endRow)
+        continue;
+      if (!collisionGrid.areCoordsValid(newCol, newRow))
+        continue;
+
+      const auto &cellNeighbor =
+          collisionGrid.cells[newRow][newCol].particleIndices;
+      uint32_t nNeighbor = cellNeighbor.size();
+
+      if (nNeighbor == 0)
+        continue;
+
+      if (row == newRow && col == newCol) {
+        for (uint32_t i = 0; i + 1 < nCurrent; ++i) {
+          for (uint32_t j = i + 1; j < nCurrent; ++j) {
+            solveCollision(particles[current[i]], particles[current[j]]);
+          }
+        }
+      } else {
+        for (uint32_t i = 0; i < nCurrent; ++i) {
+          for (uint32_t j = 0; j < nNeighbor; ++j) {
+            solveCollision(particles[current[i]], particles[cellNeighbor[j]]);
+          }
+        }
+      }
+    }
+  }
+
+  void processBand(uint32_t beginRow, uint32_t endRow, uint32_t C) {
+    for (uint32_t row = beginRow; row <= endRow; ++row) {
+      for (uint32_t col = 0; col < C; ++col) {
+        processNeighboringCells_band(beginRow, endRow, row, col);
       }
     }
   }
@@ -136,13 +176,36 @@ struct PhysicsEngine {
     }
   }
 
+  void checkAllCollisions() {
+    for (int row = 0; row < collisionGrid.rows; ++row) {
+      for (int col = 0; col < collisionGrid.cols; ++col) {
+        processNeighboringCells(row, col);
+      }
+    }
+  }
+
+  void checkAllCollisions_rowPairWavefront() {
+    const uint32_t R = collisionGrid.rows, C = collisionGrid.cols;
+
+    auto stripe = [&](uint32_t startRow) {
+      for (uint32_t row = startRow; row + 1 < R; row += 2) {
+        pool.addTask([this, row, C] { processBand(row, row + 1, C); });
+      }
+      pool.waitIdle();
+    };
+
+    stripe(0);
+    stripe(1);
+  }
+
   void update(float dt) {
     float subDt = dt / static_cast<float>(subSteps);
     float maxX = static_cast<float>(width);
     float maxY = static_cast<float>(height);
     for (int i = 0; i < subSteps; ++i) {
       updateObjects(subDt);
-      checkAllCollisions();
+      // checkAllCollisions();
+      checkAllCollisions_rowPairWavefront();
       for (auto &p : particles) {
         p.clampPosition(maxX, maxY);
       }

@@ -19,6 +19,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 set(SRC
   main.cpp
   src/render/render.cpp
+  src/thread_pool/thread_pool.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SRC})

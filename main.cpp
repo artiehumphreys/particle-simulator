@@ -1,11 +1,13 @@
 #include "physics.hpp"
 #include "render/render.hpp"
+#include "thread_pool/thread_pool.hpp"
 
 int main() {
   sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
   int width = desktop.width;
   int height = desktop.height - 54;
-  PhysicsEngine engine(width, height);
+  tp::ThreadPool pool(0);
+  PhysicsEngine engine(width, height, pool);
   render::Renderer renderer(engine, width, height);
 
   for (int i = 0; i < 2500; ++i)

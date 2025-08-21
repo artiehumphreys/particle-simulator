@@ -21,17 +21,19 @@ ThreadPool::~ThreadPool() {
   stop();
 }
 
-void ThreadPool::startWorkers(int32_t n) {
-  workers.reserve(n);
+void ThreadPool::startWorkers(uint32_t n) {
+  workers_.reserve(n);
+  running_.store(true, std::memory_order_release);
   for (uint32_t i = 0; i < n; ++i) {
     // pass lambda callable to thread
-    workers.emplace_back([this] {
+    workers_.emplace_back([this] {
+      std::function<void()> task;
       for (;;) {
-        if (!tasks_.wait_pop(task))
+        if (!tasks_.getTask(task))
           break;
         try {
           task();
-        } catch {
+        } catch (...) {
           std::cout << "Cannot process task. Continuing." << '\n';
           continue;
         }
@@ -41,7 +43,7 @@ void ThreadPool::startWorkers(int32_t n) {
   }
 }
 
-void ThreadPool::waitIdle() { tasks_.waitUntilComplete() }
+void ThreadPool::waitIdle() { tasks_.waitUntilComplete(); }
 
 void ThreadPool::stop() {
   if (!running_.exchange(false, std::memory_order_acq_rel))
@@ -53,7 +55,6 @@ void ThreadPool::stop() {
       th.join();
   }
   workers_.clear();
-}
 }
 
 } // namespace tp
