@@ -1,6 +1,11 @@
 #pragma once
 
 #include "common.hpp"
+#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <queue>
+#include <utility>
 
 class SafeQueue {
 public:

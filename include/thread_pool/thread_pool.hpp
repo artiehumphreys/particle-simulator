@@ -2,6 +2,10 @@
 
 #include "common.hpp"
 #include "safe_queue.hpp"
+#include <atomic>
+#include <cstdint>
+#include <functional>
+#include <thread>
 
 namespace tp {
 class ThreadPool {
@@ -25,7 +29,7 @@ public:
 
 private:
   void startWorkers(uint32_t n);
-  vec<std::thread> workers_;
+  std::vector<std::thread> workers_;
   SafeQueue tasks_;
   std::atomic<bool> running_ = false;
   uint32_t numThreads;

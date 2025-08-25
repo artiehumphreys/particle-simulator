@@ -1,16 +1,18 @@
 #include "physics.hpp"
 #include "render/render.hpp"
 #include "thread_pool/thread_pool.hpp"
+#include <cstdint>
+#include <cstdlib>
 
 int main() {
   sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
-  int width = desktop.width;
-  int height = desktop.height - 54;
+  uint32_t width = desktop.width;
+  uint32_t height = desktop.height - 54;
   tp::ThreadPool pool(0);
   PhysicsEngine engine(width, height, pool);
   render::Renderer renderer(engine, width, height);
 
-  for (int i = 0; i < 2500; ++i)
+  for (int i = 0; i < 4000; ++i)
     engine.addParticle(
         {float(std::rand() % width), float(std::rand() % height)});
 

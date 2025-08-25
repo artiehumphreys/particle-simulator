@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include <cstdint>
 
 struct Particle {
   vec2 position = {0.0f, 0.0f};
@@ -25,7 +26,7 @@ struct Particle {
   void clampPosition(float maxX, float maxY) {
     float r = static_cast<float>(radius);
 
-    constexpr float dampening = 0.8f;
+    constexpr float dampening = 0.9f;
     vec2 v = position - lastPosition;
 
     if (position.x < r) {

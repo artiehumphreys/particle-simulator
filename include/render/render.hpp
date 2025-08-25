@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "particle.hpp"
 #include "physics.hpp"
+#include <cstdint>
 
 namespace render {
 class Renderer {

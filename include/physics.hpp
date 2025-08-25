@@ -4,16 +4,21 @@
 #include "grid.hpp"
 #include "particle.hpp"
 #include "thread_pool/thread_pool.hpp"
+#include <algorithm>
+#include <cstdint>
+#include <vector>
 
-#define GRAVITY 20.0f
+#define GRAVITY 10.0f
 
 struct PhysicsEngine {
   Grid<Particle> collisionGrid;
-  vec<Particle> particles;
+  std::vector<Particle> particles;
   // list of dead (free) particles that have been removed and can be recycled
-  vec<uint32_t> freeList;
+  std::vector<uint32_t> freeList;
   uint32_t width, height;
   uint8_t subSteps = 4; // collision resolution
+
+  std::vector<uint8_t> rowHasActive;
 
   tp::ThreadPool &pool;
 
@@ -22,7 +27,38 @@ struct PhysicsEngine {
 
   PhysicsEngine(uint32_t width_, uint32_t height_, tp::ThreadPool &pool_)
       : collisionGrid{width_, height_}, width(width_), height(height_),
-        pool(pool_) {}
+        pool(pool_) {
+    rowHasActive.assign(collisionGrid.rows, 0);
+  }
+
+  void rebuildActiveRows() {
+    const uint32_t R = collisionGrid.rows, C = collisionGrid.cols;
+    if (rowHasActive.size() != R)
+      rowHasActive.assign(R, 0);
+    else
+      std::fill(rowHasActive.begin(), rowHasActive.end(), 0);
+
+    for (uint32_t r = 0; r < R; ++r) {
+      for (uint32_t c = 0; c < C; ++c) {
+        if (!collisionGrid.cells[r][c].particleIndices.empty()) {
+          rowHasActive[r] = 1;
+          break; // next row
+        }
+      }
+    }
+  }
+
+  inline bool bandHasWork(uint32_t r0, uint32_t r1) const {
+    if (rowHasActive.empty())
+      return true;
+    r1 = std::min(r1, static_cast<uint32_t>(rowHasActive.size() - 1));
+    for (uint32_t r = r0; r <= r1; ++r)
+      if (rowHasActive[r])
+        return true;
+    if (r1 + 1 < rowHasActive.size() && rowHasActive[r1 + 1])
+      return true;
+    return false;
+  }
 
   void solveCollision(Particle &p1, Particle &p2) {
     // idea: take the difference between their summed radii and actual
@@ -66,20 +102,20 @@ struct PhysicsEngine {
       if (nNeighbor == 0)
         continue;
 
-      auto processSameCellCollisions = [this](const vec<uint32_t> &particles,
-                                              uint32_t nParticles) {
-        for (uint32_t a = 0; a < nParticles; ++a) {
-          int idx1 = particles[a];
-          for (uint32_t b = a + 1; b < nParticles; ++b) {
-            int idx2 = particles[b];
-            solveCollision(this->particles[idx1], this->particles[idx2]);
-          }
-        }
-      };
+      auto processSameCellCollisions =
+          [this](const std::vector<uint32_t> &particles, uint32_t nParticles) {
+            for (uint32_t a = 0; a < nParticles; ++a) {
+              int idx1 = particles[a];
+              for (uint32_t b = a + 1; b < nParticles; ++b) {
+                int idx2 = particles[b];
+                solveCollision(this->particles[idx1], this->particles[idx2]);
+              }
+            }
+          };
 
       auto processCrossCellCollisions =
-          [this](const vec<uint32_t> &current, uint32_t nCurrent,
-                 const vec<uint32_t> &neighbor, uint32_t nNeighbor) {
+          [this](const std::vector<uint32_t> &current, uint32_t nCurrent,
+                 const std::vector<uint32_t> &neighbor, uint32_t nNeighbor) {
             for (uint32_t i = 0; i < nCurrent; ++i) {
               int idx1 = current[i];
               for (uint32_t j = 0; j < nNeighbor; ++j) {
@@ -105,16 +141,17 @@ struct PhysicsEngine {
       return;
 
     for (uint8_t i = 0; i < sizeof(DIRS) / sizeof(DIRS[0]); ++i) {
-      uint32_t newRow = row + DIRS[i][0];
-      uint32_t newCol = col + DIRS[i][1];
+      const int32_t newRow = (int32_t)row + DIRS[i][0];
+      const int32_t newCol = (int32_t)col + DIRS[i][1];
       if (newRow < beginRow || newRow > endRow)
         continue;
       if (!collisionGrid.areCoordsValid(newCol, newRow))
         continue;
 
       const auto &cellNeighbor =
-          collisionGrid.cells[newRow][newCol].particleIndices;
-      uint32_t nNeighbor = cellNeighbor.size();
+          collisionGrid.cells[(uint32_t)newRow][(uint32_t)newCol]
+              .particleIndices;
+      uint32_t nNeighbor = (uint32_t)cellNeighbor.size();
 
       if (nNeighbor == 0)
         continue;
@@ -137,6 +174,8 @@ struct PhysicsEngine {
 
   void processBand(uint32_t beginRow, uint32_t endRow, uint32_t C) {
     for (uint32_t row = beginRow; row <= endRow; ++row) {
+      if (!rowHasActive[row])
+        continue;
       for (uint32_t col = 0; col < C; ++col) {
         processNeighboringCells_band(beginRow, endRow, row, col);
       }
@@ -184,12 +223,17 @@ struct PhysicsEngine {
     }
   }
 
-  void checkAllCollisions_rowPairWavefront() {
+  void checkAllCollisions_rowChunkWavefront(uint32_t rowsPerTask = 2) {
     const uint32_t R = collisionGrid.rows, C = collisionGrid.cols;
+    rowsPerTask = std::max<uint32_t>(1, rowsPerTask);
 
     auto stripe = [&](uint32_t startRow) {
-      for (uint32_t row = startRow; row + 1 < R; row += 2) {
-        pool.addTask([this, row, C] { processBand(row, row + 1, C); });
+      for (uint32_t row = startRow; row < R; row += rowsPerTask) {
+        const uint32_t endRow =
+            std::min<uint32_t>(R - 1, row + rowsPerTask - 1);
+        if (!bandHasWork(row, endRow))
+          continue;
+        pool.addTask([this, row, endRow, C] { processBand(row, endRow, C); });
       }
       pool.waitIdle();
     };
@@ -205,7 +249,8 @@ struct PhysicsEngine {
     for (int i = 0; i < subSteps; ++i) {
       updateObjects(subDt);
       // checkAllCollisions();
-      checkAllCollisions_rowPairWavefront();
+      rebuildActiveRows();
+      checkAllCollisions_rowChunkWavefront();
       for (auto &p : particles) {
         p.clampPosition(maxX, maxY);
       }

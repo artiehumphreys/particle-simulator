@@ -1,5 +1,12 @@
 #include "common.hpp"
 #include "thread_pool/thread_pool.hpp"
+#include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <functional>
+#include <iostream>
+#include <thread>
+#include <vector>
 
 namespace tp {
 

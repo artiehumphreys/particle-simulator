@@ -1,4 +1,5 @@
 #include "render/render.hpp"
+#include <cstdint>
 
 namespace render {
 Renderer::Renderer(PhysicsEngine &engine_, uint32_t width_, uint32_t height_)

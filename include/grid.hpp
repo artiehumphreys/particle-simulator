@@ -1,14 +1,18 @@
 #pragma once
 
 #include "common.hpp"
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 template <typename T> struct Grid {
 
   struct Cell {
     vec2 position;
     // each cell keeps track of particles contained with it.
-    vec<uint32_t> particleIndices;
+    std::vector<uint32_t> particleIndices;
 
     Cell(float x, float y) : position{x, y} {}
 
@@ -29,7 +33,7 @@ template <typename T> struct Grid {
     }
   };
 
-  vec<vec<Cell>> cells;
+  std::vector<std::vector<Cell>> cells;
   uint32_t width, height;
   static constexpr uint8_t cellSize = 4;
   uint32_t rows, cols;
@@ -43,7 +47,7 @@ template <typename T> struct Grid {
     cells.clear();
     cells.reserve(rows);
     for (uint32_t i = 0; i < rows; ++i) {
-      vec<Cell> row;
+      std::vector<Cell> row;
       row.reserve(cols);
       for (uint32_t j = 0; j < cols; ++j) {
         row.emplace_back(j, i);
