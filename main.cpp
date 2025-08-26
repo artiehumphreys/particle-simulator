@@ -3,12 +3,13 @@
 #include "thread_pool/thread_pool.hpp"
 #include <cstdint>
 #include <cstdlib>
+#include <thread>
 
 int main() {
   sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
   uint32_t width = desktop.width;
   uint32_t height = desktop.height - 54;
-  tp::ThreadPool pool(0);
+  tp::ThreadPool pool(std::thread::hardware_concurrency());
   PhysicsEngine engine(width, height, pool);
   render::Renderer renderer(engine, width, height);
 
