@@ -13,7 +13,7 @@ int main() {
   PhysicsEngine engine(width, height, pool);
   render::Renderer renderer(engine, width, height);
 
-  for (int i = 0; i < 4000; ++i)
+  for (int i = 0; i < 4250; ++i)
     engine.addParticle(
         {float(std::rand() % width), float(std::rand() % height)});
 

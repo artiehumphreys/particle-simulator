@@ -24,6 +24,7 @@ public:
     return true;
   }
 
+  // worker-facing blocking pop.
   bool getTask(std::function<void()> &target_callback) {
     std::unique_lock<std::mutex> unique_lock(mtx_);
     cv_tasks_.wait(unique_lock, [&] { return closed_ || !tasks.empty(); });
@@ -34,19 +35,26 @@ public:
     return true;
   }
 
+  // non-blocking pop
+  bool tryGetTask(std::function<void()> &out) {
+    std::lock_guard<std::mutex> lk(mtx_);
+    if (tasks.empty())
+      return false;
+    out = std::move(tasks.front());
+    tasks.pop();
+    return true;
+  }
+
   void waitUntilComplete() {
     std::unique_lock<std::mutex> unique_lock(mtx_);
     cv_done_.wait(unique_lock, [&] { return remaining_ == 0; });
   }
 
-  void taskDone() {
-    bool notify = false;
-    {
-      std::lock_guard<std::mutex> lock_guard(mtx_);
-      notify = (--remaining_ == 0);
-    }
-    if (notify)
-      cv_done_.notify_all();
+  // wait for either new available tasks OR all work done
+  void waitUntilWorkOrComplete() {
+    std::unique_lock<std::mutex> lk(mtx_);
+    cv_tasks_.wait(
+        lk, [&] { return remaining_ == 0 || !tasks.empty() || closed_; });
   }
 
   void close() {
@@ -55,6 +63,24 @@ public:
       closed_ = true;
     }
     cv_tasks_.notify_all();
+  }
+
+  bool isComplete() {
+    std::lock_guard<std::mutex> lk(mtx_);
+    return remaining_ == 0;
+  }
+
+  // wake waiters in both paths when work hits zero
+  void taskDone() {
+    bool notify_done = false;
+    {
+      std::lock_guard<std::mutex> lk(mtx_);
+      notify_done = (--remaining_ == 0);
+    }
+    if (notify_done) {
+      cv_done_.notify_all();
+      cv_tasks_.notify_all();
+    }
   }
 
 private:

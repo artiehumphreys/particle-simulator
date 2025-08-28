@@ -36,6 +36,7 @@ void ThreadPool::startWorkers(uint32_t n) {
     workers_.emplace_back([this] {
       std::function<void()> task;
       for (;;) {
+        // use getTask to park workers until work is available
         if (!tasks_.getTask(task))
           break;
         try {
@@ -50,7 +51,26 @@ void ThreadPool::startWorkers(uint32_t n) {
   }
 }
 
-void ThreadPool::waitIdle() { tasks_.waitUntilComplete(); }
+void ThreadPool::waitIdle() {
+  std::function<void()> task;
+  for (;;) {
+    // use tryGetTask to not block new tasks from entering the queue
+    while (tasks_.tryGetTask(task)) {
+      // ensuring taskDone runs on scope exit
+      struct Done {
+        SafeQueue *q;
+        ~Done() noexcept { q->taskDone(); }
+      } done{&tasks_};
+      try {
+        task();
+      } catch (...) {
+      }
+    }
+    if (tasks_.isComplete())
+      return;
+    tasks_.waitUntilWorkOrComplete();
+  }
+}
 
 void ThreadPool::stop() {
   if (!running_.exchange(false, std::memory_order_acq_rel))
