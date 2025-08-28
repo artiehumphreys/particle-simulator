@@ -18,10 +18,6 @@ struct PhysicsEngine {
   uint32_t width, height;
   uint8_t subSteps = 4; // collision resolution
 
-  std::vector<uint8_t> rowHasActive;
-  std::vector<uint32_t> rowMinCol;
-  std::vector<uint32_t> rowMaxCol;
-
   tp::ThreadPool &pool;
 
   static constexpr int8_t DIRS[5][2] = {
@@ -29,50 +25,17 @@ struct PhysicsEngine {
 
   PhysicsEngine(uint32_t width_, uint32_t height_, tp::ThreadPool &pool_)
       : collisionGrid{width_, height_}, width(width_), height(height_),
-        pool(pool_) {
-    const uint32_t R = collisionGrid.rows, C = collisionGrid.cols;
-    rowHasActive.assign(R, 0);
-    rowMinCol.assign(R, C);
-    rowMaxCol.assign(R, 0);
-  }
-
-  void rebuildActiveRows() {
-    const uint32_t R = collisionGrid.rows, C = collisionGrid.cols;
-    if (rowHasActive.size() != R) {
-      rowHasActive.assign(R, 0);
-      rowMinCol.assign(R, C);
-      rowMaxCol.assign(R, 0);
-    } else {
-      std::fill(rowHasActive.begin(), rowHasActive.end(), 0);
-      std::fill(rowMinCol.begin(), rowMinCol.end(), C);
-      std::fill(rowMaxCol.begin(), rowMaxCol.end(), 0);
-    }
-
-    for (uint32_t r = 0; r < R; ++r) {
-      for (uint32_t c = 0; c < C; ++c) {
-        if (!collisionGrid.cells[r][c].particleIndices.empty()) {
-          rowHasActive[r] = 1;
-          if (c < rowMinCol[r])
-            rowMinCol[r] = c;
-          if (c > rowMaxCol[r])
-            rowMaxCol[r] = c;
-        }
-      }
-      if (!rowHasActive[r]) {
-        rowMinCol[r] = 1;
-        rowMaxCol[r] = 0;
-      }
-    }
-  }
+        pool(pool_) {}
 
   inline bool bandHasWork(uint32_t r0, uint32_t r1) const {
-    if (rowHasActive.empty())
+    const auto &active = collisionGrid.rowHasActive;
+    if (active.empty())
       return true;
-    r1 = std::min(r1, static_cast<uint32_t>(rowHasActive.size() - 1));
+    r1 = std::min(r1, static_cast<uint32_t>(active.size() - 1));
     for (uint32_t r = r0; r <= r1; ++r)
-      if (rowHasActive[r])
+      if (active[r])
         return true;
-    if (r1 + 1 < rowHasActive.size() && rowHasActive[r1 + 1])
+    if (r1 + 1 < active.size() && active[r1 + 1])
       return true;
     return false;
   }
@@ -193,10 +156,11 @@ struct PhysicsEngine {
 
   void processBand(uint32_t beginRow, uint32_t endRow, uint32_t C) {
     for (uint32_t row = beginRow; row <= endRow; ++row) {
-      if (!rowHasActive[row])
+      if (!collisionGrid.rowHasActive[row])
         continue;
-      const uint32_t c0 = rowMinCol[row], c1 = rowMaxCol[row];
-      for (uint32_t col = c0; col < c1; ++col) {
+      const uint32_t c0 = collisionGrid.rowMinCol[row],
+                     c1 = collisionGrid.rowMaxCol[row];
+      for (uint32_t col = c0; col <= c1; ++col) {
         processNeighboringCells_band(beginRow, endRow, row, col);
       }
     }
@@ -269,7 +233,6 @@ struct PhysicsEngine {
     for (int i = 0; i < subSteps; ++i) {
       updateObjects(subDt);
       // checkAllCollisions();
-      rebuildActiveRows();
       checkAllCollisions_rowChunkWavefront();
       for (auto &p : particles) {
         p.clampPosition(maxX, maxY);

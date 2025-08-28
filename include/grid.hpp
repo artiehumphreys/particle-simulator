@@ -31,12 +31,20 @@ template <typename T> struct Grid {
       }
       return false;
     }
+
+    bool empty() const noexcept { return particleIndices.empty(); }
   };
 
   std::vector<std::vector<Cell>> cells;
   uint32_t width, height;
   static constexpr uint8_t cellSize = 4;
   uint32_t rows, cols;
+
+  std::vector<uint8_t> rowHasActive;
+  std::vector<uint32_t> rowMinCol;
+  std::vector<uint32_t> rowMaxCol;
+  std::vector<uint32_t> rowNonEmptyCount;
+
   Grid(uint32_t width_, uint32_t height_) : width(width_), height(height_) {
     cols = (width + cellSize - 1) / cellSize;
     rows = (height + cellSize - 1) / cellSize;
@@ -54,6 +62,39 @@ template <typename T> struct Grid {
       }
       cells.push_back(std::move(row));
     }
+
+    rowHasActive.assign(rows, 0);
+    rowNonEmptyCount.assign(rows, 0);
+    // min > max => empty
+    rowMinCol.assign(rows, cols);
+    rowMaxCol.assign(rows, 0);
+  }
+
+  inline void recomputeRowMin(uint32_t r, uint32_t from) {
+    uint32_t c = from;
+    while (c < cols && cells[r][c].empty())
+      ++c;
+    if (c >= cols) {
+      rowMinCol[r] = 1;
+      rowMaxCol[r] = 0;
+      rowHasActive[r] = 0;
+    } else {
+      rowMinCol[r] = c;
+    }
+  }
+
+  inline void recomputeRowMax(uint32_t r, uint32_t from) {
+    // guard underflow
+    int64_t c = (int64_t)from;
+    while (c >= 0 && cells[r][(uint32_t)c].empty())
+      --c;
+    if (c < 0) {
+      rowMinCol[r] = 1;
+      rowMaxCol[r] = 0;
+      rowHasActive[r] = 0;
+    } else {
+      rowMaxCol[r] = (uint32_t)c;
+    }
   }
 
   static vec2 getGridIndex(uint32_t x, uint32_t y) {
@@ -62,22 +103,60 @@ template <typename T> struct Grid {
     return vec2{newX, newY};
   }
 
-  void insertParticle(const uint32_t idx, uint32_t x, uint32_t y) {
-    vec2 newCoords = getGridIndex(x, y);
-    if (!areCoordsValid(newCoords.x, newCoords.y))
+  void insertParticle(uint32_t idx, uint32_t x, uint32_t y) {
+    vec2 gi = getGridIndex(x, y);
+    if (!areCoordsValid((int32_t)gi.x, (int32_t)gi.y))
       return;
-    cells[static_cast<uint32_t>(newCoords.y)]
-         [static_cast<uint32_t>(newCoords.x)]
-             .addParticle(idx);
+
+    uint32_t r = (uint32_t)gi.y;
+    uint32_t c = (uint32_t)gi.x;
+
+    auto &cell = cells[r][c];
+    bool wasEmpty = cell.empty();
+    cell.addParticle(idx);
+
+    if (wasEmpty) {
+      if (rowNonEmptyCount[r]++ == 0) {
+        rowHasActive[r] = 1;
+        rowMinCol[r] = c;
+        rowMaxCol[r] = c;
+      } else {
+        if (c < rowMinCol[r])
+          rowMinCol[r] = c;
+        if (c > rowMaxCol[r])
+          rowMaxCol[r] = c;
+      }
+    }
   }
 
-  bool removeParticle(const uint32_t idx, uint32_t x, uint32_t y) {
-    vec2 newCoords = getGridIndex(x, y);
-    if (!areCoordsValid(newCoords.x, newCoords.y))
+  bool removeParticle(uint32_t idx, uint32_t x, uint32_t y) {
+    vec2 gi = getGridIndex(x, y);
+    if (!areCoordsValid((int32_t)gi.x, (int32_t)gi.y))
       return false;
-    return cells[static_cast<uint32_t>(newCoords.y)]
-                [static_cast<uint32_t>(newCoords.x)]
-                    .removeParticle(idx);
+
+    uint32_t r = (uint32_t)gi.y;
+    uint32_t c = (uint32_t)gi.x;
+
+    auto &cell = cells[r][c];
+    bool removed = cell.removeParticle(idx);
+    if (!removed)
+      return false;
+
+    if (cell.empty()) {
+      uint32_t cnt = --rowNonEmptyCount[r];
+      if (cnt == 0) {
+        rowHasActive[r] = 0;
+        rowMinCol[r] = 1;
+        rowMaxCol[r] = 0;
+      } else {
+        if (c == rowMinCol[r])
+          recomputeRowMin(r, c + 1);
+        if (c == rowMaxCol[r]) {
+          recomputeRowMax(r, (c == 0 ? 0u : c - 1));
+        }
+      }
+    }
+    return true;
   }
 
   const Cell *get(int32_t x, int32_t y) const {
