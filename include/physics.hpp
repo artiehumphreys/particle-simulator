@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-#define GRAVITY 10.0f
+#define GRAVITY 15.0f
 
 struct PhysicsEngine {
   Grid<Particle> collisionGrid;
@@ -89,8 +89,7 @@ struct PhysicsEngine {
   }
 
   void processNeighboringCells(uint32_t row, uint32_t col) {
-    const auto &current = collisionGrid.cells[row][col].particleIndices;
-    const uint32_t nCurrent = current.size();
+    const auto &current = collisionGrid.at(row, col).particleIndices;
     if (current.empty())
       return;
 
@@ -99,14 +98,17 @@ struct PhysicsEngine {
       const int32_t newCol = static_cast<int32_t>(col) + DIRS[i][1];
       if (!collisionGrid.areCoordsValid(newCol, newRow))
         continue;
-      const auto &cellNeighbor =
-          collisionGrid.cells[newRow][newCol].particleIndices;
-      uint32_t nNeighbor = static_cast<uint32_t>(cellNeighbor.size());
 
+      const auto &cellNeighbor =
+          collisionGrid
+              .at(static_cast<uint32_t>(newRow), static_cast<uint32_t>(newCol))
+              .particleIndices;
+      const uint32_t nNeighbor = static_cast<uint32_t>(cellNeighbor.size());
       if (nNeighbor == 0)
         continue;
 
-      if (newRow == row && newCol == col) {
+      if (newRow == static_cast<int32_t>(row) &&
+          newCol == static_cast<int32_t>(col)) {
         processSameCellCollisions(current);
       } else {
         processCrossCellCollisions(current, cellNeighbor);
@@ -116,7 +118,7 @@ struct PhysicsEngine {
 
   void processNeighboringCells_band(uint32_t beginRow, uint32_t endRow,
                                     uint32_t row, uint32_t col) {
-    const auto &current = collisionGrid.cells[row][col].particleIndices;
+    const auto &current = collisionGrid.at(row, col).particleIndices;
     const uint32_t nCurrent = static_cast<uint32_t>(current.size());
     if (nCurrent == 0)
       return;
@@ -129,10 +131,10 @@ struct PhysicsEngine {
       if (!collisionGrid.areCoordsValid(newCol, newRow))
         continue;
 
-      const auto &cellNeighbor = collisionGrid
-                                     .cells[static_cast<uint32_t>(newRow)]
-                                           [static_cast<uint32_t>(newCol)]
-                                     .particleIndices;
+      const auto &cellNeighbor =
+          collisionGrid
+              .at(static_cast<uint32_t>(newRow), static_cast<uint32_t>(newCol))
+              .particleIndices;
       uint32_t nNeighbor = static_cast<int32_t>(cellNeighbor.size());
 
       if (nNeighbor == 0)
@@ -154,7 +156,7 @@ struct PhysicsEngine {
     }
   }
 
-  void processBand(uint32_t beginRow, uint32_t endRow, uint32_t C) {
+  void processBand(uint32_t beginRow, uint32_t endRow) {
     for (uint32_t row = beginRow; row <= endRow; ++row) {
       if (!collisionGrid.rowHasActive[row])
         continue;
@@ -217,7 +219,7 @@ struct PhysicsEngine {
             std::min<uint32_t>(R - 1, row + rowsPerTask - 1);
         if (!bandHasWork(row, endRow))
           continue;
-        pool.addTask([this, row, endRow, C] { processBand(row, endRow, C); });
+        pool.addTask([this, row, endRow] { processBand(row, endRow); });
       }
       pool.waitIdle();
     };
@@ -260,7 +262,7 @@ struct PhysicsEngine {
     uint32_t row = cell.y;
 
     if (collisionGrid.areCoordsValid(col, row)) {
-      collisionGrid.cells[row][col].addParticle(idx);
+      collisionGrid.at(row, col).addParticle(idx);
     }
 
     return idx;
@@ -279,7 +281,7 @@ struct PhysicsEngine {
 
     uint32_t backIndex = particles.size() - 1;
     if (id == backIndex) {
-      if (collisionGrid.cells[row][col].removeParticle(id)) {
+      if (collisionGrid.at(row, col).removeParticle(id)) {
         particles.pop_back();
         return true;
       }

@@ -26,7 +26,7 @@ struct Particle {
   void clampPosition(float maxX, float maxY) {
     float r = static_cast<float>(radius);
 
-    constexpr float dampening = 0.9f;
+    constexpr float dampening = 0.95f;
     vec2 v = position - lastPosition;
 
     if (position.x < r) {
