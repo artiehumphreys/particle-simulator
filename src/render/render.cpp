@@ -1,7 +1,8 @@
 #include "render/render.hpp"
+#include <cstdint>
 
 namespace render {
-Renderer::Renderer(PhysicsEngine &engine_, int32_t width_, int32_t height_)
+Renderer::Renderer(PhysicsEngine &engine_, uint32_t width_, uint32_t height_)
     : engine(engine_), width(width_), height(height_),
       window(sf::VideoMode(width, height), "Particle Simulator"), shape(4.0f) {
   window.setFramerateLimit(60);

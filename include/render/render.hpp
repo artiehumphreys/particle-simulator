@@ -3,11 +3,12 @@
 #include "common.hpp"
 #include "particle.hpp"
 #include "physics.hpp"
+#include <cstdint>
 
 namespace render {
 class Renderer {
 public:
-  Renderer(PhysicsEngine &engine_, int width_, int height_);
+  Renderer(PhysicsEngine &engine_, uint32_t width_, uint32_t height_);
 
   void drawParticles();
 
@@ -17,8 +18,8 @@ public:
 
 private:
   PhysicsEngine &engine;
-  int32_t width;
-  int32_t height;
+  uint32_t width;
+  uint32_t height;
   sf::RenderWindow window;
   sf::CircleShape shape;
 };
