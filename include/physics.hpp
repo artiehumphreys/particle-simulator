@@ -310,7 +310,7 @@ struct PhysicsEngine {
   }
 
   bool removeParticle(uint32_t id) {
-    if (0 < id || id >= particles.size())
+    if (id >= particles.size())
       return false;
 
     vec2 cell =
