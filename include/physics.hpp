@@ -12,7 +12,9 @@
 
 struct PhysicsEngine {
   Grid<Particle> collisionGrid;
-  std::vector<Particle> particles;
+  std::vector<Hot> hot;            // just the position
+  std::vector<Particle> particles; // every other member
+
   // list of dead (free) particles that have been removed and can be recycled
   std::vector<uint32_t> freeList;
   uint32_t width, height;
@@ -40,14 +42,14 @@ struct PhysicsEngine {
     return false;
   }
 
-  void solveCollision(Particle &p1, Particle &p2) {
+  void solveCollision(Hot &p1, Hot &p2) {
     // idea: take the difference between their summed radii and actual
     // difference between them. shift them away along axis of intersection
     // difference / 2 units
     constexpr float responseCoef = 1.0f;
     // https://github.com/johnBuffer/VerletSFML-Multithread
     constexpr float epsilon = 1e-4;
-    const float expectedDistance = static_cast<float>(p1.radius + p2.radius);
+    constexpr float expectedDistance = 2.0f * PARTICLE_RADIUS;
     vec2 axis = p1.position - p2.position;
     const float squaredDistance = axis.x * axis.x + axis.y * axis.y;
 
@@ -70,7 +72,7 @@ struct PhysicsEngine {
       const uint32_t ia = ids[a];
       for (uint32_t b = a + 1; b < n; ++b) {
         const uint32_t ib = ids[b];
-        solveCollision(particles[ia], particles[ib]);
+        solveCollision(hot[ia], hot[ib]);
       }
     }
   }
@@ -83,7 +85,7 @@ struct PhysicsEngine {
       const uint32_t ia = A[i];
       for (uint32_t j = 0; j < nB; ++j) {
         const uint32_t ib = B[j];
-        solveCollision(particles[ia], particles[ib]);
+        solveCollision(hot[ia], hot[ib]);
       }
     }
   }
@@ -126,7 +128,8 @@ struct PhysicsEngine {
     for (uint8_t i = 0; i < sizeof(DIRS) / sizeof(DIRS[0]); ++i) {
       const int32_t newRow = static_cast<int32_t>(row) + DIRS[i][0];
       const int32_t newCol = static_cast<int32_t>(col) + DIRS[i][1];
-      if (newRow < beginRow || newRow > endRow)
+      if (newRow < static_cast<int32_t>(beginRow) ||
+          newRow > static_cast<int32_t>(endRow))
         continue;
       if (!collisionGrid.areCoordsValid(newCol, newRow))
         continue;
@@ -135,21 +138,22 @@ struct PhysicsEngine {
           collisionGrid
               .at(static_cast<uint32_t>(newRow), static_cast<uint32_t>(newCol))
               .particleIndices;
-      uint32_t nNeighbor = static_cast<int32_t>(cellNeighbor.size());
+      uint32_t nNeighbor = static_cast<uint32_t>(cellNeighbor.size());
 
       if (nNeighbor == 0)
         continue;
 
-      if (row == newRow && col == newCol) {
+      if (static_cast<int32_t>(row) == newRow &&
+          static_cast<int32_t>(col) == newCol) {
         for (uint32_t i = 0; i + 1 < nCurrent; ++i) {
           for (uint32_t j = i + 1; j < nCurrent; ++j) {
-            solveCollision(particles[current[i]], particles[current[j]]);
+            solveCollision(hot[current[i]], hot[current[j]]);
           }
         }
       } else {
         for (uint32_t i = 0; i < nCurrent; ++i) {
           for (uint32_t j = 0; j < nNeighbor; ++j) {
-            solveCollision(particles[current[i]], particles[cellNeighbor[j]]);
+            solveCollision(hot[current[i]], hot[cellNeighbor[j]]);
           }
         }
       }
@@ -168,27 +172,61 @@ struct PhysicsEngine {
     }
   }
 
+  // Clamp particle i to the walls (hot pos, cold history).
+  void clampParticle(uint32_t i, float maxX, float maxY) {
+    Hot &h = hot[i];
+    Particle &c = particles[i];
+    constexpr float r = PARTICLE_RADIUS;
+    constexpr float dampening = 0.95f;
+    vec2 v = h.position - c.lastPosition;
+    if (h.position.x < r) {
+      h.position.x = r;
+      c.lastPosition.x = h.position.x + v.x * dampening;
+    } else if (h.position.x > maxX - r) {
+      h.position.x = maxX - r;
+      c.lastPosition.x = h.position.x + v.x * dampening;
+    }
+    if (h.position.y < r) {
+      h.position.y = r;
+      c.lastPosition.y = h.position.y + v.y * dampening;
+    } else if (h.position.y > maxY - r) {
+      h.position.y = maxY - r;
+      c.lastPosition.y = h.position.y + v.y * dampening;
+    }
+  }
+
+  // Verlet integrate + wall clamp for particle i.
+  void integrate(uint32_t i, float dt, float maxX, float maxY) {
+    Hot &h = hot[i];
+    Particle &c = particles[i];
+    c.acceleration += vec2{0.0f, GRAVITY};
+    // 2*pos - lastPos + accel*dt^2; lastPos := pos
+    vec2 newPosition =
+        2.0f * h.position - c.lastPosition + c.acceleration * (dt * dt);
+    c.lastPosition = h.position;
+    h.position = newPosition;
+    c.acceleration = {0.0f, 0.0f};
+    clampParticle(i, maxX, maxY);
+  }
+
   void updateObjects(float dt) {
     float maxX = static_cast<float>(width);
     float maxY = static_cast<float>(height);
-    for (Particle &p : particles) {
-      p.acceleration += vec2{0.0f, GRAVITY};
-      p.update(dt);
-      p.clampPosition(maxX, maxY);
-    }
+    for (uint32_t i = 0; i < hot.size(); ++i)
+      integrate(i, dt, maxX, maxY);
     updateCellOwnership();
   }
 
   void updateCellOwnership() {
-    for (int i = 0; i < particles.size(); ++i) {
+    for (std::size_t i = 0; i < particles.size(); ++i) {
       Particle &p = particles[i];
       vec2 oldIndex =
           collisionGrid.getGridIndex(static_cast<uint32_t>(p.lastPosition.x),
                                      static_cast<uint32_t>(p.lastPosition.y));
 
       vec2 newIndex =
-          collisionGrid.getGridIndex(static_cast<uint32_t>(p.position.x),
-                                     static_cast<uint32_t>(p.position.y));
+          collisionGrid.getGridIndex(static_cast<uint32_t>(hot[i].position.x),
+                                     static_cast<uint32_t>(hot[i].position.y));
 
       if (newIndex != oldIndex) {
         if (collisionGrid.areCoordsValid(oldIndex.x, oldIndex.y)) {
@@ -202,15 +240,15 @@ struct PhysicsEngine {
   }
 
   void checkAllCollisions() {
-    for (int row = 0; row < collisionGrid.rows; ++row) {
-      for (int col = 0; col < collisionGrid.cols; ++col) {
+    for (uint32_t row = 0; row < collisionGrid.rows; ++row) {
+      for (uint32_t col = 0; col < collisionGrid.cols; ++col) {
         processNeighboringCells(row, col);
       }
     }
   }
 
   void checkAllCollisions_rowChunkWavefront(uint32_t rowsPerTask = 2) {
-    const uint32_t R = collisionGrid.rows, C = collisionGrid.cols;
+    const uint32_t R = collisionGrid.rows;
     rowsPerTask = std::max<uint32_t>(1, rowsPerTask);
 
     auto stripe = [&](uint32_t startRow) {
@@ -236,9 +274,8 @@ struct PhysicsEngine {
       updateObjects(subDt);
       // checkAllCollisions();
       checkAllCollisions_rowChunkWavefront();
-      for (auto &p : particles) {
-        p.clampPosition(maxX, maxY);
-      }
+      for (uint32_t i = 0; i < hot.size(); ++i)
+        clampParticle(i, maxX, maxY);
       updateCellOwnership();
     }
   }
@@ -249,10 +286,14 @@ struct PhysicsEngine {
       // there are particles that can be recycled
       idx = freeList.back();
       freeList.pop_back();
-      particles[idx] = Particle{pos.x, pos.y};
+      hot[idx] = Hot{{pos.x, pos.y}};
+      particles[idx] = Particle{};
+      particles[idx].lastPosition = {pos.x, pos.y};
     } else {
       idx = particles.size();
-      particles.emplace_back(pos.x, pos.y);
+      hot.push_back(Hot{{pos.x, pos.y}});
+      particles.emplace_back();
+      particles[idx].lastPosition = {pos.x, pos.y};
     }
 
     particles[idx].id = idx;
@@ -272,9 +313,8 @@ struct PhysicsEngine {
     if (0 < id || id >= particles.size())
       return false;
 
-    Particle &remove = particles[id];
     vec2 cell =
-        collisionGrid.getGridIndex(remove.position.x, remove.position.y);
+        collisionGrid.getGridIndex(hot[id].position.x, hot[id].position.y);
 
     uint32_t col = cell.x;
     uint32_t row = cell.y;
@@ -283,6 +323,7 @@ struct PhysicsEngine {
     if (id == backIndex) {
       if (collisionGrid.at(row, col).removeParticle(id)) {
         particles.pop_back();
+        hot.pop_back();
         return true;
       }
       return false;

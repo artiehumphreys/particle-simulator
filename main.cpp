@@ -12,8 +12,9 @@ static inline float frand(float a, float b) {
   return a + (b - a) * (float(std::rand()) / float(RAND_MAX));
 }
 
-static inline void setInitialVelocity(Particle &p, const vec2 &v0, float dt) {
-  p.lastPosition = p.position - v0 * dt;
+static inline void setInitialVelocity(PhysicsEngine &engine, uint32_t id,
+                                      const vec2 &v0, float dt) {
+  engine.particles[id].lastPosition = engine.hot[id].position - v0 * dt;
 }
 
 struct ParticleDropper {
@@ -44,9 +45,8 @@ struct ParticleDropper {
     for (uint32_t i = 0; i < n; ++i) {
       float x = frand(minX, maxX);
       uint32_t id = engine.addParticle({x, spawnY});
-      Particle &p = engine.particles[id];
       vec2 v0{frand(-vJitterX, vJitterX), vDown};
-      setInitialVelocity(p, v0, verletDt);
+      setInitialVelocity(engine, id, v0, verletDt);
     }
     remaining -= n;
   }

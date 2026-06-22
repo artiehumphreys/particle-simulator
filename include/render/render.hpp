@@ -21,6 +21,6 @@ private:
   uint32_t width;
   uint32_t height;
   sf::RenderWindow window;
-  sf::CircleShape shape;
+  sf::VertexArray vertices;
 };
 } // namespace render

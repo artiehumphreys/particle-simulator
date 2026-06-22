@@ -1,10 +1,9 @@
-#include "common.hpp"
 #include "thread_pool/thread_pool.hpp"
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <functional>
-#include <iostream>
+#include <print>
 #include <thread>
 #include <vector>
 
@@ -42,8 +41,7 @@ void ThreadPool::startWorkers(uint32_t n) {
         try {
           task();
         } catch (...) {
-          std::cout << "Cannot process task. Continuing." << '\n';
-          continue;
+          std::println("Cannot process task.");
         }
         tasks_.taskDone();
       }
@@ -56,15 +54,11 @@ void ThreadPool::waitIdle() {
   for (;;) {
     // use tryGetTask to not block new tasks from entering the queue
     while (tasks_.tryGetTask(task)) {
-      // ensuring taskDone runs on scope exit
-      struct Done {
-        SafeQueue *q;
-        ~Done() noexcept { q->taskDone(); }
-      } done{&tasks_};
       try {
         task();
       } catch (...) {
       }
+      tasks_.taskDone();
     }
     if (tasks_.isComplete())
       return;
